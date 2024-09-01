@@ -8,6 +8,7 @@ class SimpleCNN:
         self.flatten = Flatten()
         self.fc1 = Dense(13*13*8, 128)
         self.fc2 = Dense(128, 10)
+        print("SimpleCNN initialized")
     
     def forward(self, x):
         x = self.conv1.forward(x)

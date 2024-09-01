@@ -1,5 +1,7 @@
 import numpy as np
 from utils import *
+
+
 class Conv2D:
     def __init__(self, input_shape, kernel_size, depth):
         self.input_shape = input_shape  # (height, width, channels)
