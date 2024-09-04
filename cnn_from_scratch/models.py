@@ -1,13 +1,14 @@
+# import numpy as np
 import numpy as np
 from utils import *
-import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor
 
 def convolve_single_depth(k, x, f, h_out, w_out, kernels, biases):
-        output_k = np.zeros((h_out, w_out))
-        for i in range(h_out):
-            for j in range(w_out):
-                output_k[i, j] = np.sum(x[i:i+f, j:j+f, :] * kernels[k]) + biases[k]
-        return k, output_k
+    output_k = np.zeros((h_out, w_out))
+    for i in range(h_out):
+        for j in range(w_out):
+            output_k[i, j] = np.sum(x[i:i+f, j:j+f, :] * kernels[k]) + biases[k]
+    return k, output_k
 
 def compute_gradients(k, d_output_k, x, f, h, w, kernels):
     d_kernels_k = np.zeros_like(kernels[k])
@@ -50,19 +51,15 @@ class Conv2D:
         w_out = w - f + 1
         output = np.zeros((h_out, w_out, d))
         
-        # Create a pool of workers
-        pool = mp.Pool(mp.cpu_count())
-
-        # Run convolve_single_depth in parallel using the pool
-        results = [pool.apply_async(convolve_single_depth, args=(k, x, f, h_out, w_out, self.kernels, self.biases)) for k in range(d)]
-        
-        # Gather the results
-        for result in results:
-            k, output_k = result.get()
-            output[:, :, k] = output_k
-
-        pool.close()
-        pool.join()
+        # Create a ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor() as executor:
+            # Run convolve_single_depth in parallel using threads
+            futures = [executor.submit(convolve_single_depth, k, x, f, h_out, w_out, self.kernels, self.biases) for k in range(d)]
+            
+            # Collect the results
+            for future in futures:
+                k, output_k = future.result()
+                output[:, :, k] = output_k
 
         return relu(output)
 
@@ -75,20 +72,16 @@ class Conv2D:
         d_kernels = np.zeros_like(self.kernels)
         d_x = np.zeros_like(self.x)
 
-        # Create a pool of workers for parallel processing
-        pool = mp.Pool(mp.cpu_count())
+        # Create a ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor() as executor:
+            # Run compute_gradients in parallel using threads
+            futures = [executor.submit(compute_gradients, k, d_output[:, :, k], self.x, f, h, w, self.kernels) for k in range(d)]
 
-        # Parallelize over the depth dimension
-        results = [pool.apply_async(compute_gradients, args=(k, d_output[:, :, k], self.x, f, h, w, self.kernels)) for k in range(d)]
-
-        # Collect results from each process
-        for result in results:
-            k, d_kernels_k, d_x_k = result.get()
-            d_kernels[k] += d_kernels_k
-            d_x += d_x_k
-
-        pool.close()
-        pool.join()
+            # Collect results from each thread
+            for future in futures:
+                k, d_kernels_k, d_x_k = future.result()
+                d_kernels[k] += d_kernels_k
+                d_x += d_x_k
 
         # Update kernels
         self.kernels -= learning_rate * d_kernels
@@ -107,19 +100,15 @@ class MaxPool2D:
         w_out = w // pool_w
         output = np.zeros((h_out, w_out, d))
         
-        # Create a pool of workers
-        pool = mp.Pool(mp.cpu_count())
+        # Create a ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor() as executor:
+            # Apply parallelization over all indices of h_out, w_out, and d
+            tasks = [(i, j, k, x, pool_h, pool_w) for i in range(h_out) for j in range(w_out) for k in range(d)]
+            results = executor.map(lambda args: max_pool_single_slice(*args), tasks)
 
-        # Apply parallelization over all indices of h_out, w_out, and d
-        tasks = [(i, j, k, x, pool_h, pool_w) for i in range(h_out) for j in range(w_out) for k in range(d)]
-        results = pool.starmap(max_pool_single_slice, tasks)
-
-        # Collect the results
-        for i, j, k, max_val in results:
-            output[i, j, k] = max_val
-
-        pool.close()
-        pool.join()
+            # Collect the results
+            for i, j, k, max_val in results:
+                output[i, j, k] = max_val
 
         return output
 
@@ -128,23 +117,20 @@ class MaxPool2D:
         pool_h, pool_w = self.pool_size
         d_x = np.zeros_like(self.x)
         
-        # Create a pool of workers
-        pool = mp.Pool(mp.cpu_count())
+        # Create a ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor() as executor:
+            # Prepare tasks for parallelization
+            tasks = [(i, j, k, self.x, d_output, pool_h, pool_w) for i in range(h // pool_h) for j in range(w // pool_w) for k in range(d)]
 
-        # Prepare tasks for parallelization
-        tasks = [(i, j, k, self.x, d_output, pool_h, pool_w) for i in range(h // pool_h) for j in range(w // pool_w) for k in range(d)]
+            # Use threads to process each slice in parallel
+            results = executor.map(lambda args: max_pool_backward_single_slice(*args), tasks)
 
-        # Use starmap to process each slice in parallel
-        results = pool.starmap(max_pool_backward_single_slice, tasks)
-
-        # Aggregate the results
-        for result in results:
-            d_x += result
-
-        pool.close()
-        pool.join()
+            # Aggregate the results
+            for result in results:
+                d_x += result
 
         return d_x
+
 
 class Flatten:
     def forward(self, x):

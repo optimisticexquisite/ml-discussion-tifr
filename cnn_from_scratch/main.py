@@ -10,6 +10,10 @@ if __name__ == '__main__':
     # Load the MNIST dataset from TensorFlow
     (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
 
+    # Only use a subset of the data
+    X_train, y_train = X_train[:2000], y_train[:2000]
+    X_test, y_test = X_test[:200], y_test[:200]
+
     # Normalize the images to [0, 1] range
     X_train = X_train.astype(np.float32) / 255.0
     X_test = X_test.astype(np.float32) / 255.0
@@ -23,7 +27,7 @@ if __name__ == '__main__':
     y_test = np.eye(10)[y_test]
 
     # Train the model
-    train(X_train, y_train, X_test, y_test, epochs=5, learning_rate=0.01, batch_size=32)
+    train(X_train, y_train, X_test, y_test, epochs=5, learning_rate=0.01, batch_size=8)
 
     # Save the model
     model = SimpleCNN()
