@@ -26,4 +26,3 @@ for i in range(8):
 
 plt.tight_layout()
 plt.show()
-# Compare this snippet from cnn_from_scratch/visualize_weights.py:
