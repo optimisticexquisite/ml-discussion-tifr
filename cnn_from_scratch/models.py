@@ -20,12 +20,15 @@ class Conv2D:
             for i in range(h_out):
                 for j in range(w_out):
                     output[i, j, k] = np.sum(x[i:i+f, j:j+f, :] * self.kernels[k]) + self.biases[k]
-        return relu(output)
+        self.output = relu(output)
+        return self.output
 
     def backward(self, d_output, learning_rate):
         h, w, c = self.input_shape
         f = self.kernel_size
         d = self.depth
+        relu_derivative = (self.output > 0) 
+        d_output = d_output * relu_derivative
         d_kernels = np.zeros_like(self.kernels)
         d_x = np.zeros_like(self.x)
         for k in range(d):
