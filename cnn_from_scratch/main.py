@@ -27,10 +27,8 @@ if __name__ == '__main__':
     y_test = np.eye(10)[y_test]
 
     # Train the model
-    train(X_train, y_train, X_test, y_test, epochs=5, learning_rate=0.01, batch_size=8)
+    model = train(X_train, y_train, X_test, y_test, epochs=5, learning_rate=0.01, batch_size=8)
 
-    # Save the model
-    model = SimpleCNN()
     save_model(model, "cnn_weights.npz")
     print("Model saved to cnn_weights.npz")
 

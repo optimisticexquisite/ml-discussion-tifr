@@ -38,6 +38,8 @@ def train(X_train, y_train, X_test, y_test, epochs, learning_rate, batch_size):
         accuracy = correct / len(X_test)
         print(f'Accuracy: {accuracy * 100}%')
 
+    return model
+
 
 def save_model(model, file_name="cnn_weights.npz"):
     # Create a dictionary to store weights and biases
